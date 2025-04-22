@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Egg Catching Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #87ceeb;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(to bottom, #87ceeb 30%, #2ecc71 30%);
+            border: 2px solid #000;
+            overflow: hidden;
+        }
+        #basket {
+            position: absolute;
+            bottom: 20px;
+            width: 100px;
+            height: 50px;
+            background-color: #8b4513;
+            border-radius: 10px;
+            transition: left 0.1s ease-out;
+        }
+        #basket.catch {
+            background-color: #d2691e;
+            transition: background-color 0.1s;
+        }
+        .egg {
+            position: absolute;
+            width: 30px;
+            height: 40px;
+            background-color: #fff;
+            border: 2px solid #000;
+            border-radius: 50%;
+            top: 0;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards, rotateEgg 1s infinite linear;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes rotateEgg {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            color: #fff;
+            text-shadow: 1px 1px 2px #000;
+        }
+        #timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #fff;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: drift 20s linear infinite;
+        }
+        .cloud1 {
+            width: 100px;
+            height: 60px;
+            top: 50px;
+            left: -100px;
+        }
+        .cloud2 {
+            width: 80px;
+            height: 40px;
+            top: 100px;
+            left: -80px;
+            animation-delay: -10s;
+        }
+        @keyframes drift {
+            from { transform: translateX(-100px); }
+            to { transform: translateX(900px); }
+        }
+        #backgroundMusic {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+        <div id="basket"></div>
+        <div id="score">Score: 0</div>
+        <div id="timer">Time: 2:00</div>
+    </div>
+    <audio id="backgroundMusic" loop src="background.mp3"></audio>
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const basket = document.getElementById('basket');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+
+        let basketX = 350;
+        let score = 0;
+        let timeLeft = 120;
+        let gameActive = true;
+        const eggs = [];
+
+        // Play background music
+        function playBackgroundMusic() {
+            backgroundMusic.play().catch(error => {
+                console.log('Autoplay prevented. Music will play on user interaction.');
+                // Attempt to play music on first user interaction
+                document.addEventListener('keydown', () => {
+                    backgroundMusic.play();
+                }, { once: true });
+            });
+        }
+
+        // Start music when game loads
+        playBackgroundMusic();
+
+        // Basket movement
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            if (e.key === 'ArrowLeft' && basketX > 0) {
+                basketX -= 20;
+            } else if (e.key === 'ArrowRight' && basketX < 700) {
+                basketX += 20;
+            }
+            basket.style.left = basketX + 'px';
+        });
+
+        // Egg class
+        class Egg {
+            constructor() {
+                this.element = document.createElement('div');
+                this.element.className = 'egg';
+                this.x = Math.random() * (800 - 30);
+                this.y = 0;
+                this.element.style.left = this.x + 'px';
+                gameContainer.appendChild(this.element);
+            }
+
+            update() {
+                this.y += 5;
+                this.element.style.top = this.y + 'px';
+
+                // Check collision with basket
+                if (this.y >= 550 && this.y <= 600 && this.x >= basketX && this.x <= basketX + 100) {
+                    score++;
+                    scoreDisplay.textContent = `Score: ${score}`;
+                    basket.classList.add('catch');
+                    setTimeout(() => basket.classList.remove('catch'), 100);
+                    this.remove();
+                    return;
+                }
+
+                // Remove egg if it falls below the screen
+                if (this.y > 600) {
+                    this.remove();
+                }
+            }
+
+            remove() {
+                this.element.remove();
+                const index = eggs.indexOf(this);
+                if (index > -1) {
+                    eggs.splice(index, 1);
+                }
+            }
+        }
+
+        // Timer
+        function updateTimer() {
+            if (!gameActive) return;
+            timeLeft--;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerDisplay.textContent = `Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            if (timeLeft <= 0) {
+                gameActive = false;
+                backgroundMusic.pause();
+                alert(`Game Over! Final Score: ${score}`);
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!gameActive) return;
+
+            // Update eggs
+            eggs.forEach(egg => egg.update());
+
+            // Spawn new egg
+            if (Math.random() < 0.02) {
+                eggs.push(new Egg());
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start timer
+        setInterval(updateTimer, 1000);
+
+        // Start game
+        basket.style.left = basketX + 'px';
+        gameLoop();
+    </script>
+</body>
+</html>
